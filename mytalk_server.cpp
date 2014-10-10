@@ -14,7 +14,7 @@
 #define FD_LIMIT 65535//文件描述符数量限制
 #define USER_LIMIT 5//users' max number
 
-struct client_data
+struct client_data//clients
 {
         sockaddr_in address;//
         char * write_buf;//写缓冲数据
@@ -28,6 +28,7 @@ int main(int argc,char* argv[])
         printf("usage:%s ip_address port_number\n",basename(argv[0]));
         return 1;
     }
+
 
     const char *ip = argv[1];
     int port = atoi(argv[2]);
@@ -48,6 +49,7 @@ int main(int argc,char* argv[])
     int listenfd = listen (sockfd,5);
     assert(listenfd!=-1);
 
+
     client_data * users = new client_data[FD_LIMIT];
     pollfd fds[FD_LIMIT+1];
     static int user_counter;
@@ -64,9 +66,7 @@ int main(int argc,char* argv[])
     while(1)
     {
 
-
     }
-
 
     delete [] users;
     close(sockfd);
