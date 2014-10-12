@@ -65,7 +65,45 @@ int main(int argc,char* argv[])
 
     while(1)
     {
+        int poll_ret = poll(fds,user_counter+1,-1);
+        if(poll_ret<0)
+        {
+            printf("poll failure\n");
+            break;
+        }
 
+        for(int i=0;i<user_counter+1;i++)
+        {
+            if((fds[i].fd == sockfd)&&(fds[i].revents&POLLIN))
+            {
+
+
+            }
+            else if(fds[i].revents&POLLERR)
+            {
+
+
+            }
+            else if(fds[i].revents&POLLREHUP)
+            {
+
+
+            }
+            else if(fds[i].revents&POLLIN)
+            {
+
+
+            }
+            else if(fds[i].revents&POLLOUT)
+            {
+
+
+            }
+
+
+
+
+        }
     }
 
     delete [] users;
