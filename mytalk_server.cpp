@@ -21,6 +21,14 @@ struct client_data//clients
         char buf[BUFFER_SIZE];//读缓冲数据
 };
 
+int setnoblocking(int fd)
+{
+    int old_option = fcntl(fd,F_GETFL);
+    int new_option = old_option|O_NONBLOCK;
+    fcntl(fd,F_SETFL,new_option);
+    return old_option;
+}
+
 int main(int argc,char* argv[])
 {
     if(argc<=2)
@@ -74,10 +82,33 @@ int main(int argc,char* argv[])
 
         for(int i=0;i<user_counter+1;i++)
         {
+
             if((fds[i].fd == sockfd)&&(fds[i].revents&POLLIN))
             {
-
-
+                struct sockaddr_in client_address;
+                socklen_t client_addlent = sizeof(client_address);
+                int connfd = accept(fds[i],(const struct *)&client_address,&client_addlent);
+                if(connfd<0)
+                {
+                    printf("errno is:%d\n",errno);
+                    continue;
+                }
+                //if the requester too many ,close the new one;
+                if(user_counter>=USER_LIMIT)
+                {
+                    const info ="too many users\n";
+                    printf("%s",info);
+                    send(connfd,info,strlen(info),0)
+                    close(connfd);
+                    continue;
+                }
+                user_counter++;
+                users[connfd].address = client_address.sin_addr;
+                setnoblocking(connfd);
+                fds[user_counter].fd=connfd;
+                fds[user_counter].events=POLLIN |POLLHUP |POLLERR;
+                fds[user_counter].revents=0;
+                printf("comes a new user, now have %d users\n",user_counter);
             }
             else if(fds[i].revents&POLLERR)
             {
@@ -99,10 +130,6 @@ int main(int argc,char* argv[])
 
 
             }
-
-
-
-
         }
     }
 
