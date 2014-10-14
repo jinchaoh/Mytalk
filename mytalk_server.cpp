@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <assert.h>
+#include <errno.h>
 
 #define BUFFER_SIZE 64//读缓冲数据大小
 #define FD_LIMIT 65535//文件描述符数量限制
@@ -87,7 +88,7 @@ int main(int argc,char* argv[])
             {
                 struct sockaddr_in client_address;
                 socklen_t client_addlent = sizeof(client_address);
-                int connfd = accept(fds[i],(const struct *)&client_address,&client_addlent);
+                int connfd = accept(fds[i].fd,(struct sockaddr*)&client_address,&client_addlent);
                 if(connfd<0)
                 {
                     printf("errno is:%d\n",errno);
@@ -96,14 +97,14 @@ int main(int argc,char* argv[])
                 //if the requester too many ,close the new one;
                 if(user_counter>=USER_LIMIT)
                 {
-                    const info ="too many users\n";
+                    const char *info ="too many users\n";
                     printf("%s",info);
-                    send(connfd,info,strlen(info),0)
+                    send(connfd,info,strlen(info),0);
                     close(connfd);
                     continue;
                 }
                 user_counter++;
-                users[connfd].address = client_address.sin_addr;
+                users[connfd].address = client_address;
                 setnoblocking(connfd);
                 fds[user_counter].fd=connfd;
                 fds[user_counter].events=POLLIN |POLLHUP |POLLERR;
@@ -112,23 +113,67 @@ int main(int argc,char* argv[])
             }
             else if(fds[i].revents&POLLERR)
             {
-
+                printf("get an error from %d\n",fds[i].fd);
+                continue;
 
             }
-            else if(fds[i].revents&POLLREHUP)
+            else if(fds[i].revents & POLLRDHUP)
             {
-
+                users[fds[i].fd]=users[fds[user_counter].fd];
+                close(fds[i].fd);
+                fds[i] = fds[user_counter];
+                i--;
+                user_counter --;
+                printf("a user left\n");
 
             }
             else if(fds[i].revents&POLLIN)
             {
+                  int connfd = fds[i].fd;
+                memset( users[connfd].buf, '\0', BUFFER_SIZE );
+                int ret = recv( connfd, users[connfd].buf, BUFFER_SIZE-1, 0 );
+                printf( "get %d bytes of client data %s from %d\n", ret, users[connfd].buf, connfd );
+                if( ret < 0 )
+                {
+                    if( errno != EAGAIN )
+                    {
+                        close( connfd );
+                        users[fds[i].fd] = users[fds[user_counter].fd];
+                        fds[i] = fds[user_counter];
+                        i--;
+                        user_counter--;
+                    }
+                }
+                else if( ret == 0 )
+                {
+                    printf( "code should not come to here\n" );
+                }
+                else
+                {
+                    for( int j = 1; j <= user_counter; ++j )
+                    {
+                        if( fds[j].fd == connfd )
+                        {
+                            continue;
+                        }
 
-
+                        fds[j].events |= ~POLLIN;
+                        fds[j].events |= POLLOUT;
+                        users[fds[j].fd].write_buf = users[connfd].buf;
+                    }
+                }
             }
             else if(fds[i].revents&POLLOUT)
             {
-
-
+                   int connfd = fds[i].fd;
+                if( ! users[connfd].write_buf )
+                {
+                    continue;
+                }
+                int ret = send( connfd, users[connfd].write_buf, strlen( users[connfd].write_buf ), 0 );
+                users[connfd].write_buf = NULL;
+                fds[i].events |= ~POLLOUT;
+                fds[i].events |= POLLIN;
             }
         }
     }
