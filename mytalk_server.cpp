@@ -113,7 +113,14 @@ int main(int argc,char* argv[])
             }
             else if(fds[i].revents&POLLERR)
             {
-                printf("get an error from %d\n",fds[i].fd);
+                printf( "get an error from %d\n", fds[i].fd );
+                char errors[ 100 ];
+                memset( errors, '\0', 100 );
+                socklen_t length = sizeof( errors );
+                if( getsockopt( fds[i].fd, SOL_SOCKET, SO_ERROR, &errors, &length ) < 0 )
+                {
+                    printf( "get socket option failed\n" );
+                }
                 continue;
 
             }
